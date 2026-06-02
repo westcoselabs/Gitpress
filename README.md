@@ -1,4 +1,4 @@
-# GitPress
+## GitPress
 
 **GitPress** is a WordPress plugin by [WestCose Labs](https://westcoselabs.com) for an SEO-safe GitHub-to-WordPress content workflow:
 
