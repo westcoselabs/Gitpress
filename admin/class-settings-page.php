@@ -80,6 +80,8 @@ class DGS_Settings_Page {
 			<pre><code>[divi_github_content owner="acme" repo="site-content" path="partials/hero.html" branch="main" format="html"]</code></pre>
 			<pre><code>[divi_github_content url="https://github.com/acme/site-content/blob/main/partials/hero.html" format="html"]</code></pre>
 
+			<?php self::render_shortcode_creator(); ?>
+
 			<h2><?php esc_html_e( 'Recommended SEO-safe workflow', 'gitpress' ); ?></h2>
 			<ul>
 				<li><?php esc_html_e( 'Store render-ready HTML partials or simple Markdown in GitHub.', 'gitpress' ); ?></li>
@@ -169,5 +171,320 @@ class DGS_Settings_Page {
 		}
 
 		return $ttl;
+	}
+
+	/**
+	 * Render the client-side shortcode creator UI.
+	 *
+	 * @return void
+	 */
+	private static function render_shortcode_creator() {
+		$format_options = array(
+			'auto'     => __( 'auto', 'gitpress' ),
+			'html'     => __( 'html', 'gitpress' ),
+			'markdown' => __( 'markdown', 'gitpress' ),
+			'text'     => __( 'text', 'gitpress' ),
+			'code'     => __( 'code', 'gitpress' ),
+			'raw'      => __( 'raw', 'gitpress' ),
+		);
+		?>
+		<h2><?php esc_html_e( 'Shortcode Creator', 'gitpress' ); ?></h2>
+		<p><?php esc_html_e( 'Paste a GitHub file URL and generate a ready-to-use GitPress shortcode.', 'gitpress' ); ?></p>
+
+		<div id="dgs-shortcode-creator" class="dgs-shortcode-creator">
+			<table class="form-table" role="presentation">
+				<tbody>
+					<tr>
+						<th scope="row">
+							<label for="dgs-shortcode-url"><?php esc_html_e( 'GitHub file URL', 'gitpress' ); ?></label>
+						</th>
+						<td>
+							<input
+								id="dgs-shortcode-url"
+								type="url"
+								class="regular-text code"
+								placeholder="<?php echo esc_attr( 'https://github.com/owner/repo/blob/main/path/file.html' ); ?>"
+								autocomplete="off"
+								spellcheck="false"
+							>
+							<p class="description"><?php esc_html_e( 'Supported: github.com blob/raw URLs and raw.githubusercontent.com URLs.', 'gitpress' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">
+							<label for="dgs-shortcode-format"><?php esc_html_e( 'Format', 'gitpress' ); ?></label>
+						</th>
+						<td>
+							<select id="dgs-shortcode-format">
+								<?php foreach ( $format_options as $value => $label ) : ?>
+									<option value="<?php echo esc_attr( $value ); ?>"><?php echo esc_html( $label ); ?></option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description"><?php esc_html_e( 'Choose auto to detect the shortcode format from the file extension.', 'gitpress' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">
+							<label for="dgs-shortcode-output"><?php esc_html_e( 'Generated shortcode', 'gitpress' ); ?></label>
+						</th>
+						<td>
+							<textarea id="dgs-shortcode-output" rows="4" class="large-text code" readonly></textarea>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<details class="dgs-shortcode-creator__advanced">
+				<summary><?php esc_html_e( 'Advanced fields', 'gitpress' ); ?></summary>
+				<table class="form-table" role="presentation">
+					<tbody>
+						<tr>
+							<th scope="row"><label for="dgs-shortcode-owner"><?php esc_html_e( 'Owner', 'gitpress' ); ?></label></th>
+							<td><input id="dgs-shortcode-owner" type="text" class="regular-text code" readonly></td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="dgs-shortcode-repo"><?php esc_html_e( 'Repo', 'gitpress' ); ?></label></th>
+							<td><input id="dgs-shortcode-repo" type="text" class="regular-text code" readonly></td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="dgs-shortcode-branch"><?php esc_html_e( 'Branch', 'gitpress' ); ?></label></th>
+							<td><input id="dgs-shortcode-branch" type="text" class="regular-text code" readonly></td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="dgs-shortcode-path"><?php esc_html_e( 'Path', 'gitpress' ); ?></label></th>
+							<td><input id="dgs-shortcode-path" type="text" class="large-text code" readonly></td>
+						</tr>
+					</tbody>
+				</table>
+			</details>
+
+			<p class="submit">
+				<button type="button" class="button button-primary" id="dgs-generate-shortcode"><?php esc_html_e( 'Generate Shortcode', 'gitpress' ); ?></button>
+				<button type="button" class="button" id="dgs-copy-shortcode"><?php esc_html_e( 'Copy Shortcode', 'gitpress' ); ?></button>
+			</p>
+
+			<p id="dgs-shortcode-message" class="dgs-shortcode-creator__message" role="status" aria-live="polite"></p>
+		</div>
+
+		<style>
+			.dgs-shortcode-creator__advanced {
+				margin-top: 1rem;
+			}
+
+			.dgs-shortcode-creator__advanced summary {
+				cursor: pointer;
+				font-weight: 600;
+			}
+
+			.dgs-shortcode-creator__message {
+				margin-top: 0.75rem;
+				margin-bottom: 0;
+			}
+
+			.dgs-shortcode-creator__message.is-error {
+				color: #b91c1c;
+			}
+
+			.dgs-shortcode-creator__message.is-success {
+				color: #166534;
+			}
+		</style>
+
+		<script>
+			(function() {
+				var creator = document.getElementById('dgs-shortcode-creator');
+
+				if (!creator) {
+					return;
+				}
+
+				var urlField = document.getElementById('dgs-shortcode-url');
+				var formatField = document.getElementById('dgs-shortcode-format');
+				var outputField = document.getElementById('dgs-shortcode-output');
+				var ownerField = document.getElementById('dgs-shortcode-owner');
+				var repoField = document.getElementById('dgs-shortcode-repo');
+				var branchField = document.getElementById('dgs-shortcode-branch');
+				var pathField = document.getElementById('dgs-shortcode-path');
+				var messageField = document.getElementById('dgs-shortcode-message');
+				var generateButton = document.getElementById('dgs-generate-shortcode');
+				var copyButton = document.getElementById('dgs-copy-shortcode');
+				var messages = <?php echo wp_json_encode(
+					array(
+						'invalid'        => __( 'Enter a valid GitHub file URL using github.com or raw.githubusercontent.com.', 'gitpress' ),
+						'unsupported'    => __( 'That GitHub URL format is not supported. Use a blob URL, a github.com raw URL, or a raw.githubusercontent.com URL.', 'gitpress' ),
+						'missing'        => __( 'The URL must include an owner, repo, branch, and file path.', 'gitpress' ),
+						'generated'      => __( 'Shortcode generated.', 'gitpress' ),
+						'copied'         => __( 'Shortcode copied to clipboard.', 'gitpress' ),
+						'nothingToCopy'  => __( 'Generate a shortcode before copying it.', 'gitpress' ),
+						'copyFailed'     => __( 'Copy failed. Select the shortcode manually and copy it.', 'gitpress' ),
+					)
+				); ?>;
+
+				function setMessage(text, type) {
+					messageField.textContent = text;
+					messageField.className = 'dgs-shortcode-creator__message';
+
+					if (type) {
+						messageField.classList.add(type === 'error' ? 'is-error' : 'is-success');
+					}
+				}
+
+				function resetParsedFields() {
+					ownerField.value = '';
+					repoField.value = '';
+					branchField.value = '';
+					pathField.value = '';
+					outputField.value = '';
+				}
+
+				function parseGitHubUrl(rawUrl) {
+					var parsedUrl;
+					var hostname;
+					var segments;
+
+					try {
+						parsedUrl = new URL(rawUrl);
+					} catch (error) {
+						return { error: messages.invalid };
+					}
+
+					hostname = parsedUrl.hostname.toLowerCase();
+					segments = parsedUrl.pathname.replace(/^\/+|\/+$/g, '').split('/');
+
+					if (!segments[0]) {
+						return { error: messages.invalid };
+					}
+
+					if ((hostname === 'github.com' || hostname === 'www.github.com') && segments.length >= 5) {
+						if (segments[2] !== 'blob' && segments[2] !== 'raw') {
+							return { error: messages.unsupported };
+						}
+
+						return {
+							owner: segments[0],
+							repo: segments[1],
+							branch: segments[3],
+							path: segments.slice(4).join('/')
+						};
+					}
+
+					if (hostname === 'raw.githubusercontent.com' && segments.length >= 4) {
+						return {
+							owner: segments[0],
+							repo: segments[1],
+							branch: segments[2],
+							path: segments.slice(3).join('/')
+						};
+					}
+
+					return { error: messages.unsupported };
+				}
+
+				function detectFormat(path) {
+					var normalizedPath = path.toLowerCase();
+
+					if (/\.(html?|xhtml)$/.test(normalizedPath)) {
+						return 'html';
+					}
+
+					if (/\.(md|markdown)$/.test(normalizedPath)) {
+						return 'markdown';
+					}
+
+					if (/\.txt$/.test(normalizedPath)) {
+						return 'text';
+					}
+
+					if (/\.(css|js|json|php|jsx|tsx|ts)$/.test(normalizedPath)) {
+						return 'code';
+					}
+
+					return 'raw';
+				}
+
+				function escapeShortcodeAttribute(value) {
+					return String(value).replace(/"/g, '&quot;');
+				}
+
+				function generateShortcode() {
+					var rawUrl = urlField.value.trim();
+					var parsed = parseGitHubUrl(rawUrl);
+					var selectedFormat;
+					var shortcodeFormat;
+
+					resetParsedFields();
+
+					if (!rawUrl) {
+						setMessage(messages.invalid, 'error');
+						return;
+					}
+
+					if (parsed.error) {
+						setMessage(parsed.error, 'error');
+						return;
+					}
+
+					if (!parsed.owner || !parsed.repo || !parsed.branch || !parsed.path) {
+						setMessage(messages.missing, 'error');
+						return;
+					}
+
+					ownerField.value = parsed.owner;
+					repoField.value = parsed.repo;
+					branchField.value = parsed.branch;
+					pathField.value = parsed.path;
+
+					selectedFormat = formatField.value;
+					shortcodeFormat = selectedFormat === 'auto' ? detectFormat(parsed.path) : selectedFormat;
+
+					outputField.value = '[divi_github_content owner="' + escapeShortcodeAttribute(parsed.owner) + '" repo="' + escapeShortcodeAttribute(parsed.repo) + '" branch="' + escapeShortcodeAttribute(parsed.branch) + '" path="' + escapeShortcodeAttribute(parsed.path) + '" format="' + escapeShortcodeAttribute(shortcodeFormat) + '"]';
+					setMessage(messages.generated, 'success');
+				}
+
+				function fallbackCopy() {
+					outputField.focus();
+					outputField.select();
+					outputField.setSelectionRange(0, outputField.value.length);
+
+					try {
+						if (document.execCommand('copy')) {
+							setMessage(messages.copied, 'success');
+							return;
+						}
+					} catch (error) {
+					}
+
+					setMessage(messages.copyFailed, 'error');
+				}
+
+				function copyShortcode() {
+					if (!outputField.value) {
+						setMessage(messages.nothingToCopy, 'error');
+						return;
+					}
+
+					if (navigator.clipboard && navigator.clipboard.writeText) {
+						navigator.clipboard.writeText(outputField.value).then(function() {
+							setMessage(messages.copied, 'success');
+						}).catch(function() {
+							fallbackCopy();
+						});
+						return;
+					}
+
+					fallbackCopy();
+				}
+
+				generateButton.addEventListener('click', generateShortcode);
+				copyButton.addEventListener('click', copyShortcode);
+				urlField.addEventListener('keydown', function(event) {
+					if (event.key === 'Enter') {
+						event.preventDefault();
+						generateShortcode();
+					}
+				});
+			})();
+		</script>
+		<?php
 	}
 }

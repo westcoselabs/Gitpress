@@ -42,7 +42,7 @@ class DGS_Page_Shortcode_Manager {
 		foreach ( self::supported_post_types() as $post_type ) {
 			add_meta_box(
 				self::META_BOX_ID,
-				__( 'GitHub Shortcode', 'gitpress' ),
+				__( 'GitPress Shortcode', 'gitpress' ),
 				array( __CLASS__, 'render_meta_box' ),
 				$post_type,
 				'normal',
@@ -267,7 +267,7 @@ class DGS_Page_Shortcode_Manager {
 		$placement   = self::sanitize_placement( get_post_meta( $post->ID, self::META_KEY_PLACEMENT, true ) );
 		$render_mode = self::get_render_mode( $post->ID );
 		$full_width  = self::is_full_width_content_area_enabled( $post->ID );
-		$title       = '' === $shortcode ? __( 'Add GitHub Shortcode', 'gitpress' ) : __( 'GitHub Shortcode', 'gitpress' );
+		$title       = '' === $shortcode ? __( 'Add GitPress Shortcode', 'gitpress' ) : __( 'GitPress Shortcode', 'gitpress' );
 		$edit_url    = $edit_link . '#dgs-page-shortcode-panel';
 
 		$wp_admin_bar->add_node(
