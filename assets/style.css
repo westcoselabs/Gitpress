@@ -1,0 +1,42 @@
+.dgs-content-block {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+}
+
+.dgs-content-block__body > :first-child {
+	margin-top: 0;
+}
+
+.dgs-content-block__body > :last-child {
+	margin-bottom: 0;
+}
+
+.dgs-content-block__meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	margin-top: 0.75rem;
+	font-size: 0.875rem;
+	color: #475569;
+}
+
+.dgs-content-block__source {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.dgs-code {
+	margin: 0;
+	overflow-x: auto;
+}
+
+.dgs-error {
+	padding: 0.875rem 1rem;
+	margin: 1rem 0;
+	border: 1px solid #ef4444;
+	border-radius: 0.5rem;
+	background: #fef2f2;
+	color: #991b1b;
+}
