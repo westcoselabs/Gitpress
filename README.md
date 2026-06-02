@@ -86,6 +86,17 @@ Add a Divi `Code` module, `Text` module, or any WordPress shortcode-aware block 
 [divi_github_content owner="acme" repo="site-content" path="snippets/example.js" format="code" source_link="true"]
 ```
 
+## Page-Level Render Modes
+
+When you attach a GitPress shortcode directly to a page or post with the page-level metabox, choose the render mode that matches the layout you want:
+
+- `Theme Wrapped`
+  Keeps the normal WordPress/Divi header, menu, footer, and theme wrapper. This is the recommended mode for SEO pages, service pages, and any page that should stay inside the site theme.
+- `Full Canvas`
+  Uses standalone landing-page behavior where the shortcode output becomes the page body and the theme/global header/footer may be bypassed. This is the recommended mode for campaign pages or custom repo-driven landing pages.
+
+In `Theme Wrapped` mode, the render position setting controls whether the shortcode appears before, after, or instead of the page content area while keeping the surrounding theme chrome intact. GitPress also enables a `Full-width content area` option by default so Divi pages can keep the global header/footer while hiding the default page title and avoiding the usual boxed/sidebar layout where possible.
+
 ## Shortcode attributes
 
 | Attribute | Required | Default | Notes |

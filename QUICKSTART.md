@@ -54,6 +54,14 @@ Or paste a GitHub file URL directly:
 [divi_github_content url="https://github.com/acme/site-content/blob/main/partials/home-hero.html" format="html"]
 ```
 
+## 4b. Choose the right page-level render mode
+
+If you use the GitPress metabox on a page or post instead of a Divi module:
+
+- `Theme Wrapped` is best for SEO pages and service pages because the normal Divi header, navigation, footer, and theme wrapper stay in place.
+- `Theme Wrapped` enables a full-width content area by default so the page can keep the global header and footer while hiding the default page title and avoiding the usual sidebar layout where possible.
+- `Full Canvas` is best for standalone campaign pages where the repo-driven markup should become the main page body.
+
 ## 5. Optional: connect a webhook
 
 In GitHub:
