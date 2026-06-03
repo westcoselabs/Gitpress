@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 class DGS_Settings_Page {
 
 	/**
+	 * Settings group used by options.php.
+	 */
+	const SETTINGS_GROUP = 'dgs_settings';
+
+	/**
 	 * Render the admin settings page.
 	 *
 	 * @return void
@@ -31,14 +36,14 @@ class DGS_Settings_Page {
 			<h1><?php esc_html_e( 'GitPress', 'gitpress' ); ?></h1>
 			<p><?php esc_html_e( 'Use GitHub as the source of truth for HTML partials, Markdown, text, or code snippets, then render them server-side inside any WordPress theme with a shortcode.', 'gitpress' ); ?></p>
 
-			<?php if ( 'saved' === $status ) : ?>
-				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Settings saved.', 'gitpress' ); ?></p></div>
-			<?php elseif ( 'purged' === $status ) : ?>
+			<?php settings_errors(); ?>
+
+			<?php if ( 'purged' === $status ) : ?>
 				<div class="notice notice-success is-dismissible"><p><?php echo esc_html( sprintf( __( 'Cache cleared. %d entries removed.', 'gitpress' ), $purged ) ); ?></p></div>
 			<?php endif; ?>
 
-			<form method="post" action="">
-				<?php wp_nonce_field( 'dgs_save_settings', 'dgs_nonce' ); ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'options.php' ) ); ?>">
+				<?php settings_fields( self::SETTINGS_GROUP ); ?>
 				<table class="form-table" role="presentation">
 					<tbody>
 						<tr>
@@ -100,7 +105,44 @@ class DGS_Settings_Page {
 	}
 
 	/**
-	 * Handle settings and purge forms.
+	 * Register settings for options.php handling.
+	 *
+	 * @return void
+	 */
+	public static function register_settings() {
+		register_setting(
+			self::SETTINGS_GROUP,
+			'dgs_github_token',
+			array(
+				'type'              => 'string',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_github_token' ),
+				'default'           => '',
+			)
+		);
+
+		register_setting(
+			self::SETTINGS_GROUP,
+			'dgs_github_webhook_secret',
+			array(
+				'type'              => 'string',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_webhook_secret' ),
+				'default'           => '',
+			)
+		);
+
+		register_setting(
+			self::SETTINGS_GROUP,
+			'dgs_cache_ttl',
+			array(
+				'type'              => 'integer',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_ttl' ),
+				'default'           => DGS_DEFAULT_CACHE_TTL,
+			)
+		);
+	}
+
+	/**
+	 * Handle the purge cache form.
 	 *
 	 * @return void
 	 */
@@ -109,29 +151,6 @@ class DGS_Settings_Page {
 
 		if ( 'POST' !== $request_method ) {
 			return;
-		}
-
-		if ( isset( $_POST['dgs_save_settings_submit'] ) ) {
-			check_admin_referer( 'dgs_save_settings', 'dgs_nonce' );
-
-			$github_token   = isset( $_POST['dgs_github_token'] ) ? sanitize_text_field( trim( wp_unslash( (string) $_POST['dgs_github_token'] ) ) ) : '';
-			$webhook_secret = isset( $_POST['dgs_github_webhook_secret'] ) ? sanitize_text_field( trim( wp_unslash( (string) $_POST['dgs_github_webhook_secret'] ) ) ) : '';
-			$cache_ttl      = isset( $_POST['dgs_cache_ttl'] ) ? self::sanitize_ttl( $_POST['dgs_cache_ttl'] ) : DGS_DEFAULT_CACHE_TTL;
-
-			update_option( 'dgs_github_token', $github_token, false );
-			update_option( 'dgs_github_webhook_secret', $webhook_secret, false );
-			update_option( 'dgs_cache_ttl', $cache_ttl, false );
-
-			wp_safe_redirect(
-				add_query_arg(
-					array(
-						'page'       => 'gitpress',
-						'dgs_status' => 'saved',
-					),
-					admin_url( 'admin.php' )
-				)
-			);
-			exit;
 		}
 
 		if ( isset( $_POST['dgs_clear_cache_submit'] ) ) {
@@ -159,7 +178,8 @@ class DGS_Settings_Page {
 	 * @param mixed $ttl Raw TTL value.
 	 * @return int
 	 */
-	private static function sanitize_ttl( $ttl ) {
+	public static function sanitize_ttl( $ttl ) {
+		$original_ttl = $ttl;
 		$ttl = absint( $ttl );
 
 		if ( $ttl < 60 ) {
@@ -170,7 +190,56 @@ class DGS_Settings_Page {
 			$ttl = DAY_IN_SECONDS;
 		}
 
+		if ( (string) $ttl !== (string) absint( $original_ttl ) ) {
+			add_settings_error(
+				'dgs_messages',
+				'dgs_cache_ttl_clamped',
+				__( 'Default cache TTL was adjusted to stay within the allowed 60-second to 1-day range.', 'gitpress' ),
+				'warning'
+			);
+		}
+
 		return $ttl;
+	}
+
+	/**
+	 * Sanitize the GitHub token option.
+	 *
+	 * @param mixed $token Raw token value.
+	 * @return string
+	 */
+	public static function sanitize_github_token( $token ) {
+		if ( is_array( $token ) || is_object( $token ) ) {
+			add_settings_error(
+				'dgs_messages',
+				'dgs_github_token_invalid',
+				__( 'GitHub token could not be saved because the submitted value was invalid.', 'gitpress' ),
+				'error'
+			);
+			return '';
+		}
+
+		return sanitize_text_field( trim( wp_unslash( (string) $token ) ) );
+	}
+
+	/**
+	 * Sanitize the webhook secret option.
+	 *
+	 * @param mixed $secret Raw webhook secret value.
+	 * @return string
+	 */
+	public static function sanitize_webhook_secret( $secret ) {
+		if ( is_array( $secret ) || is_object( $secret ) ) {
+			add_settings_error(
+				'dgs_messages',
+				'dgs_webhook_secret_invalid',
+				__( 'Webhook secret could not be saved because the submitted value was invalid.', 'gitpress' ),
+				'error'
+			);
+			return '';
+		}
+
+		return sanitize_text_field( trim( wp_unslash( (string) $secret ) ) );
 	}
 
 	/**
@@ -240,19 +309,19 @@ class DGS_Settings_Page {
 					<tbody>
 						<tr>
 							<th scope="row"><label for="dgs-shortcode-owner"><?php esc_html_e( 'Owner', 'gitpress' ); ?></label></th>
-							<td><input id="dgs-shortcode-owner" type="text" class="regular-text code" readonly></td>
+							<td><input id="dgs-shortcode-owner" type="text" class="regular-text code" autocomplete="off" spellcheck="false"></td>
 						</tr>
 						<tr>
 							<th scope="row"><label for="dgs-shortcode-repo"><?php esc_html_e( 'Repo', 'gitpress' ); ?></label></th>
-							<td><input id="dgs-shortcode-repo" type="text" class="regular-text code" readonly></td>
+							<td><input id="dgs-shortcode-repo" type="text" class="regular-text code" autocomplete="off" spellcheck="false"></td>
 						</tr>
 						<tr>
 							<th scope="row"><label for="dgs-shortcode-branch"><?php esc_html_e( 'Branch', 'gitpress' ); ?></label></th>
-							<td><input id="dgs-shortcode-branch" type="text" class="regular-text code" readonly></td>
+							<td><input id="dgs-shortcode-branch" type="text" class="regular-text code" autocomplete="off" spellcheck="false"></td>
 						</tr>
 						<tr>
 							<th scope="row"><label for="dgs-shortcode-path"><?php esc_html_e( 'Path', 'gitpress' ); ?></label></th>
-							<td><input id="dgs-shortcode-path" type="text" class="large-text code" readonly></td>
+							<td><input id="dgs-shortcode-path" type="text" class="large-text code" autocomplete="off" spellcheck="false"></td>
 						</tr>
 					</tbody>
 				</table>
@@ -291,7 +360,7 @@ class DGS_Settings_Page {
 		</style>
 
 		<script>
-			(function() {
+			document.addEventListener('DOMContentLoaded', function() {
 				var creator = document.getElementById('dgs-shortcode-creator');
 
 				if (!creator) {
@@ -312,7 +381,8 @@ class DGS_Settings_Page {
 					array(
 						'invalid'        => __( 'Enter a valid GitHub file URL using github.com or raw.githubusercontent.com.', 'gitpress' ),
 						'unsupported'    => __( 'That GitHub URL format is not supported. Use a blob URL, a github.com raw URL, or a raw.githubusercontent.com URL.', 'gitpress' ),
-						'missing'        => __( 'The URL must include an owner, repo, branch, and file path.', 'gitpress' ),
+						'missing'        => __( 'Fill in owner, repo, branch, and path before generating the shortcode.', 'gitpress' ),
+						'parsed'         => __( 'GitHub URL parsed. You can adjust the fields before generating.', 'gitpress' ),
 						'generated'      => __( 'Shortcode generated.', 'gitpress' ),
 						'copied'         => __( 'Shortcode copied to clipboard.', 'gitpress' ),
 						'nothingToCopy'  => __( 'Generate a shortcode before copying it.', 'gitpress' ),
@@ -321,20 +391,12 @@ class DGS_Settings_Page {
 				); ?>;
 
 				function setMessage(text, type) {
-					messageField.textContent = text;
+					messageField.textContent = text || '';
 					messageField.className = 'dgs-shortcode-creator__message';
 
 					if (type) {
 						messageField.classList.add(type === 'error' ? 'is-error' : 'is-success');
 					}
-				}
-
-				function resetParsedFields() {
-					ownerField.value = '';
-					repoField.value = '';
-					branchField.value = '';
-					pathField.value = '';
-					outputField.value = '';
 				}
 
 				function parseGitHubUrl(rawUrl) {
@@ -406,38 +468,71 @@ class DGS_Settings_Page {
 					return String(value).replace(/"/g, '&quot;');
 				}
 
-				function generateShortcode() {
-					var rawUrl = urlField.value.trim();
-					var parsed = parseGitHubUrl(rawUrl);
-					var selectedFormat;
-					var shortcodeFormat;
+				function populateFields(parsed) {
+					ownerField.value = parsed.owner || '';
+					repoField.value = parsed.repo || '';
+					branchField.value = parsed.branch || '';
+					pathField.value = parsed.path || '';
+				}
 
-					resetParsedFields();
+				function maybeParseUrl() {
+					var rawUrl = urlField.value.trim();
+					var parsed;
 
 					if (!rawUrl) {
-						setMessage(messages.invalid, 'error');
+						setMessage('', '');
 						return;
 					}
 
+					parsed = parseGitHubUrl(rawUrl);
+
 					if (parsed.error) {
+						setMessage('', '');
+						return;
+					}
+
+					populateFields(parsed);
+					setMessage(messages.parsed, 'success');
+				}
+
+				function getFieldValues() {
+					return {
+						owner: ownerField.value.trim(),
+						repo: repoField.value.trim(),
+						branch: branchField.value.trim(),
+						path: pathField.value.trim()
+					};
+				}
+
+				function generateShortcode() {
+					var rawUrl = urlField.value.trim();
+					var parsed = rawUrl ? parseGitHubUrl(rawUrl) : null;
+					var values;
+					var selectedFormat;
+					var shortcodeFormat;
+
+					if (parsed && parsed.error) {
 						setMessage(parsed.error, 'error');
 						return;
 					}
 
-					if (!parsed.owner || !parsed.repo || !parsed.branch || !parsed.path) {
+					if (parsed) {
+						populateFields(parsed);
+					}
+
+					values = getFieldValues();
+
+					if (!values.owner || !values.repo || !values.branch || !values.path) {
 						setMessage(messages.missing, 'error');
 						return;
 					}
 
-					ownerField.value = parsed.owner;
-					repoField.value = parsed.repo;
-					branchField.value = parsed.branch;
-					pathField.value = parsed.path;
-
 					selectedFormat = formatField.value;
-					shortcodeFormat = selectedFormat === 'auto' ? detectFormat(parsed.path) : selectedFormat;
+					shortcodeFormat = selectedFormat === 'auto' ? detectFormat(values.path) : selectedFormat;
 
-					outputField.value = '[divi_github_content owner="' + escapeShortcodeAttribute(parsed.owner) + '" repo="' + escapeShortcodeAttribute(parsed.repo) + '" branch="' + escapeShortcodeAttribute(parsed.branch) + '" path="' + escapeShortcodeAttribute(parsed.path) + '" format="' + escapeShortcodeAttribute(shortcodeFormat) + '"]';
+					outputField.value = '[divi_github_content owner="' + escapeShortcodeAttribute(values.owner) + '" repo="' + escapeShortcodeAttribute(values.repo) + '" branch="' + escapeShortcodeAttribute(values.branch) + '" path="' + escapeShortcodeAttribute(values.path) + '" format="' + escapeShortcodeAttribute(shortcodeFormat) + '"]';
+					outputField.focus();
+					outputField.select();
 					setMessage(messages.generated, 'success');
 				}
 
@@ -465,6 +560,8 @@ class DGS_Settings_Page {
 
 					if (navigator.clipboard && navigator.clipboard.writeText) {
 						navigator.clipboard.writeText(outputField.value).then(function() {
+							outputField.focus();
+							outputField.select();
 							setMessage(messages.copied, 'success');
 						}).catch(function() {
 							fallbackCopy();
@@ -477,13 +574,14 @@ class DGS_Settings_Page {
 
 				generateButton.addEventListener('click', generateShortcode);
 				copyButton.addEventListener('click', copyShortcode);
+				urlField.addEventListener('input', maybeParseUrl);
 				urlField.addEventListener('keydown', function(event) {
 					if (event.key === 'Enter') {
 						event.preventDefault();
 						generateShortcode();
 					}
 				});
-			})();
+			});
 		</script>
 		<?php
 	}

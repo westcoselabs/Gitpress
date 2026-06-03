@@ -42,6 +42,7 @@ class GitPress {
 	public static function boot() {
 		add_action( 'init', array( __CLASS__, 'init' ) );
 		add_action( 'admin_menu', array( __CLASS__, 'add_admin_menu' ) );
+		add_action( 'admin_init', array( 'DGS_Settings_Page', 'register_settings' ) );
 	}
 
 	/**
