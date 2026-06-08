@@ -464,39 +464,79 @@ class DGS_Page_Shortcode_Manager {
 			return;
 		}
 
+		$remove_top_gap = apply_filters( 'dgs_theme_wrapped_full_width_remove_top_gap', true, $post_id );
+
 		?>
 		<style id="dgs-theme-wrapped-full-width">
-			.dgs-full-width-content .entry-title,
-			.dgs-full-width-content .main_title {
+			body.dgs-theme-wrapped.dgs-full-width-content .entry-title,
+			body.dgs-theme-wrapped.dgs-full-width-content .main_title {
+				display: none !important;
+				margin: 0 !important;
+				padding: 0 !important;
+			}
+
+			body.dgs-theme-wrapped.dgs-full-width-content #sidebar {
 				display: none;
 			}
 
-			.dgs-full-width-content #sidebar {
-				display: none;
-			}
-
-			.dgs-full-width-content #left-area {
+			body.dgs-theme-wrapped.dgs-full-width-content #left-area {
 				float: none;
 				width: 100%;
 				padding-right: 0;
 			}
 
-			.dgs-full-width-content #content-area::before,
-			.dgs-full-width-content .container::before {
+			body.dgs-theme-wrapped.dgs-full-width-content #content-area::before,
+			body.dgs-theme-wrapped.dgs-full-width-content .container::before {
 				display: none;
 			}
 
-			.dgs-full-width-content .container {
+			body.dgs-theme-wrapped.dgs-full-width-content .container {
 				max-width: none;
 				width: 100%;
 			}
 
-			.dgs-full-width-content .dgs-gitpress-full-width {
+			body.dgs-theme-wrapped.dgs-full-width-content .dgs-gitpress-full-width {
 				width: 100vw;
 				max-width: none;
 				margin-left: calc(50% - 50vw);
 				margin-right: calc(50% - 50vw);
 			}
+			<?php if ( $remove_top_gap ) : ?>
+
+			body.dgs-theme-wrapped.dgs-full-width-content #main-content {
+				padding-top: 0 !important;
+			}
+
+			body.dgs-theme-wrapped.dgs-full-width-content #left-area {
+				padding-top: 0 !important;
+			}
+
+			body.dgs-theme-wrapped.dgs-full-width-content .entry-content {
+				padding-top: 0 !important;
+				margin-top: 0 !important;
+			}
+
+			body.dgs-theme-wrapped.dgs-full-width-content .dgs-gitpress-content {
+				margin-top: 0 !important;
+				padding-top: 0 !important;
+			}
+
+			body.dgs-theme-wrapped.dgs-full-width-content .dgs-gitpress-full-width {
+				margin-top: 0 !important;
+				padding-top: 0 !important;
+			}
+
+			body.dgs-theme-wrapped.dgs-full-width-content .dgs-gitpress-full-width > :first-child {
+				margin-top: 0 !important;
+			}
+
+			body.dgs-theme-wrapped.dgs-full-width-content article,
+			body.dgs-theme-wrapped.dgs-full-width-content .type-page,
+			body.dgs-theme-wrapped.dgs-full-width-content .hentry {
+				margin-top: 0 !important;
+				padding-top: 0 !important;
+			}
+			<?php endif; ?>
 		</style>
 		<?php
 	}
