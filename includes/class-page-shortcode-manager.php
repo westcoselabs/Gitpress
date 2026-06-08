@@ -447,6 +447,10 @@ class DGS_Page_Shortcode_Manager {
 
 		if ( self::is_full_width_content_area_enabled( $post_id ) ) {
 			$classes[] = 'dgs-full-width-content';
+
+			if ( apply_filters( 'dgs_theme_wrapped_full_width_remove_top_gap', true, $post_id ) ) {
+				$classes[] = 'dgs-remove-top-gap';
+			}
 		}
 
 		return array_values( array_unique( $classes ) );
@@ -503,12 +507,24 @@ class DGS_Page_Shortcode_Manager {
 			}
 			<?php if ( $remove_top_gap ) : ?>
 
+			body.dgs-theme-wrapped.dgs-full-width-content #et-main-area,
 			body.dgs-theme-wrapped.dgs-full-width-content #main-content {
+				margin-top: 0 !important;
 				padding-top: 0 !important;
 			}
 
+			body.dgs-theme-wrapped.dgs-full-width-content .et-l--post,
+			body.dgs-theme-wrapped.dgs-full-width-content .et_builder_inner_content,
 			body.dgs-theme-wrapped.dgs-full-width-content #left-area {
+				margin-top: 0 !important;
 				padding-top: 0 !important;
+			}
+
+			body.dgs-theme-wrapped.dgs-full-width-content #main-content .container {
+				padding-top: 0 !important;
+				margin-top: 0 !important;
+				max-width: none !important;
+				width: 100% !important;
 			}
 
 			body.dgs-theme-wrapped.dgs-full-width-content .entry-content {
@@ -526,8 +542,18 @@ class DGS_Page_Shortcode_Manager {
 				padding-top: 0 !important;
 			}
 
+			body.dgs-theme-wrapped.dgs-full-width-content .entry-content > :first-child,
+			body.dgs-theme-wrapped.dgs-full-width-content .dgs-gitpress-content:first-child,
+			body.dgs-theme-wrapped.dgs-full-width-content .dgs-gitpress-full-width:first-child,
 			body.dgs-theme-wrapped.dgs-full-width-content .dgs-gitpress-full-width > :first-child {
 				margin-top: 0 !important;
+				padding-top: 0 !important;
+			}
+
+			body.dgs-theme-wrapped.dgs-full-width-content .dgs-gitpress-full-width .et_pb_section:first-child,
+			body.dgs-theme-wrapped.dgs-full-width-content .dgs-gitpress-full-width section:first-child {
+				margin-top: 0 !important;
+				padding-top: 0 !important;
 			}
 
 			body.dgs-theme-wrapped.dgs-full-width-content article,
@@ -741,11 +767,17 @@ class DGS_Page_Shortcode_Manager {
 			$classes[] = 'dgs-gitpress-full-width';
 		}
 
-		return sprintf(
+		$markup = sprintf(
 			'<div class="%1$s">%2$s</div>',
 			esc_attr( implode( ' ', $classes ) ),
 			$rendered
 		);
+
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			$markup = "<!-- DGS GitPress wrapper starts here -->\n" . $markup;
+		}
+
+		return $markup;
 	}
 
 	/**
