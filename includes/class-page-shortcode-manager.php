@@ -14,6 +14,8 @@ class DGS_Page_Shortcode_Manager {
 	const META_KEY_RENDER_MODE = '_dgs_page_shortcode_render_mode';
 	const META_KEY_FULL_WIDTH  = '_dgs_page_shortcode_full_width';
 	const META_KEY_FULL_PAGE   = '_dgs_page_shortcode_full_page';
+	const META_KEY_DIVI_LAYOUT_BACKUP = '_dgs_page_shortcode_divi_layout_backup';
+	const META_KEY_DIVI_TITLE_BACKUP  = '_dgs_page_shortcode_divi_title_backup';
 	const META_BOX_ID          = 'dgs-page-shortcode';
 	const ADMIN_BAR_ID         = 'dgs-page-shortcode';
 
@@ -30,6 +32,8 @@ class DGS_Page_Shortcode_Manager {
 
 		add_action( 'admin_bar_menu', array( __CLASS__, 'add_admin_bar_item' ), 85 );
 		add_filter( 'the_content', array( __CLASS__, 'inject_saved_shortcode' ), 25 );
+		add_filter( 'body_class', array( __CLASS__, 'filter_body_classes' ) );
+		add_action( 'wp_head', array( __CLASS__, 'print_theme_wrapped_full_width_styles' ) );
 		add_action( 'template_redirect', array( __CLASS__, 'maybe_render_full_page_canvas' ), 0 );
 	}
 
@@ -212,6 +216,7 @@ class DGS_Page_Shortcode_Manager {
 		}
 
 		if ( '' === $shortcode ) {
+			self::restore_theme_wrapped_layout_meta( $post_id );
 			delete_post_meta( $post_id, self::META_KEY_SHORTCODE );
 			delete_post_meta( $post_id, self::META_KEY_PLACEMENT );
 			delete_post_meta( $post_id, self::META_KEY_RENDER_MODE );
@@ -233,6 +238,8 @@ class DGS_Page_Shortcode_Manager {
 
 		if ( 'theme_wrapped' === $render_mode && $full_width ) {
 			self::apply_theme_wrapped_layout_meta( $post_id );
+		} else {
+			self::restore_theme_wrapped_layout_meta( $post_id );
 		}
 	}
 
@@ -357,7 +364,7 @@ class DGS_Page_Shortcode_Manager {
 		}
 
 		$placement = self::sanitize_placement( get_post_meta( $post_id, self::META_KEY_PLACEMENT, true ) );
-		$rendered  = do_shortcode( $shortcode );
+		$rendered  = self::render_shortcode_markup( $shortcode, $post_id );
 
 		if ( '' === trim( (string) $rendered ) ) {
 			return $content;
@@ -421,6 +428,77 @@ class DGS_Page_Shortcode_Manager {
 </body>
 </html><?php
 		exit;
+	}
+
+	/**
+	 * Add scoped body classes for GitPress theme-wrapped pages.
+	 *
+	 * @param array $classes Existing body classes.
+	 * @return array
+	 */
+	public static function filter_body_classes( $classes ) {
+		$post_id = self::get_current_singular_post_id();
+
+		if ( ! $post_id || ! self::has_shortcode_assignment( $post_id ) || self::is_full_page_enabled( $post_id ) ) {
+			return $classes;
+		}
+
+		$classes[] = 'dgs-theme-wrapped';
+
+		if ( self::is_full_width_content_area_enabled( $post_id ) ) {
+			$classes[] = 'dgs-full-width-content';
+		}
+
+		return array_values( array_unique( $classes ) );
+	}
+
+	/**
+	 * Print tightly scoped styles only for GitPress full-width theme-wrapped pages.
+	 *
+	 * @return void
+	 */
+	public static function print_theme_wrapped_full_width_styles() {
+		$post_id = self::get_current_singular_post_id();
+
+		if ( ! $post_id || ! self::should_use_theme_wrapped_full_width( $post_id ) ) {
+			return;
+		}
+
+		?>
+		<style id="dgs-theme-wrapped-full-width">
+			.dgs-full-width-content .entry-title,
+			.dgs-full-width-content .main_title {
+				display: none;
+			}
+
+			.dgs-full-width-content #sidebar {
+				display: none;
+			}
+
+			.dgs-full-width-content #left-area {
+				float: none;
+				width: 100%;
+				padding-right: 0;
+			}
+
+			.dgs-full-width-content #content-area::before,
+			.dgs-full-width-content .container::before {
+				display: none;
+			}
+
+			.dgs-full-width-content .container {
+				max-width: none;
+				width: 100%;
+			}
+
+			.dgs-full-width-content .dgs-gitpress-full-width {
+				width: 100vw;
+				max-width: none;
+				margin-left: calc(50% - 50vw);
+				margin-right: calc(50% - 50vw);
+			}
+		</style>
+		<?php
 	}
 
 	/**
@@ -557,8 +635,114 @@ class DGS_Page_Shortcode_Manager {
 	 * @return void
 	 */
 	private static function apply_theme_wrapped_layout_meta( $post_id ) {
+		if ( ! metadata_exists( 'post', $post_id, self::META_KEY_DIVI_LAYOUT_BACKUP ) ) {
+			$current_layout = get_post_meta( $post_id, '_et_pb_page_layout', true );
+			update_post_meta( $post_id, self::META_KEY_DIVI_LAYOUT_BACKUP, '' === (string) $current_layout ? '__dgs_empty__' : (string) $current_layout );
+		}
+
+		if ( ! metadata_exists( 'post', $post_id, self::META_KEY_DIVI_TITLE_BACKUP ) ) {
+			$current_title = get_post_meta( $post_id, '_et_pb_show_title', true );
+			update_post_meta( $post_id, self::META_KEY_DIVI_TITLE_BACKUP, '' === (string) $current_title ? '__dgs_empty__' : (string) $current_title );
+		}
+
 		update_post_meta( $post_id, '_et_pb_page_layout', 'et_full_width_page' );
 		update_post_meta( $post_id, '_et_pb_show_title', 'off' );
+	}
+
+	/**
+	 * Restore Divi page meta when GitPress full-width theme wrapping is disabled.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	private static function restore_theme_wrapped_layout_meta( $post_id ) {
+		if ( metadata_exists( 'post', $post_id, self::META_KEY_DIVI_LAYOUT_BACKUP ) ) {
+			$layout_backup = get_post_meta( $post_id, self::META_KEY_DIVI_LAYOUT_BACKUP, true );
+
+			if ( '__dgs_empty__' === (string) $layout_backup ) {
+				delete_post_meta( $post_id, '_et_pb_page_layout' );
+			} else {
+				update_post_meta( $post_id, '_et_pb_page_layout', $layout_backup );
+			}
+
+			delete_post_meta( $post_id, self::META_KEY_DIVI_LAYOUT_BACKUP );
+		}
+
+		if ( metadata_exists( 'post', $post_id, self::META_KEY_DIVI_TITLE_BACKUP ) ) {
+			$title_backup = get_post_meta( $post_id, self::META_KEY_DIVI_TITLE_BACKUP, true );
+
+			if ( '__dgs_empty__' === (string) $title_backup ) {
+				delete_post_meta( $post_id, '_et_pb_show_title' );
+			} else {
+				update_post_meta( $post_id, '_et_pb_show_title', $title_backup );
+			}
+
+			delete_post_meta( $post_id, self::META_KEY_DIVI_TITLE_BACKUP );
+		}
+	}
+
+	/**
+	 * Render shortcode markup with GitPress wrapper classes when needed.
+	 *
+	 * @param string $shortcode Shortcode string.
+	 * @param int    $post_id   Post ID.
+	 * @return string
+	 */
+	private static function render_shortcode_markup( $shortcode, $post_id ) {
+		$rendered = do_shortcode( $shortcode );
+
+		if ( '' === trim( (string) $rendered ) ) {
+			return '';
+		}
+
+		$classes = array( 'dgs-gitpress-content' );
+
+		if ( self::should_use_theme_wrapped_full_width( $post_id ) ) {
+			$classes[] = 'dgs-gitpress-full-width';
+		}
+
+		return sprintf(
+			'<div class="%1$s">%2$s</div>',
+			esc_attr( implode( ' ', $classes ) ),
+			$rendered
+		);
+	}
+
+	/**
+	 * Determine whether the current page should use theme-wrapped full-width styling.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	private static function should_use_theme_wrapped_full_width( $post_id ) {
+		return self::has_shortcode_assignment( $post_id )
+			&& 'theme_wrapped' === self::get_render_mode( $post_id )
+			&& self::is_full_width_content_area_enabled( $post_id );
+	}
+
+	/**
+	 * Check whether the post has a saved GitPress shortcode.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	private static function has_shortcode_assignment( $post_id ) {
+		return '' !== trim( (string) get_post_meta( $post_id, self::META_KEY_SHORTCODE, true ) );
+	}
+
+	/**
+	 * Get the current singular post ID when available.
+	 *
+	 * @return int
+	 */
+	private static function get_current_singular_post_id() {
+		if ( is_admin() || ! is_singular() ) {
+			return 0;
+		}
+
+		$post = get_queried_object();
+
+		return ( $post instanceof WP_Post ) ? (int) $post->ID : 0;
 	}
 
 	/**
