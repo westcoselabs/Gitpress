@@ -97,6 +97,17 @@ class DGS_Page_Shortcode_Manager {
 					<br>
 					<span class="description"><?php esc_html_e( 'Standalone landing page mode. The shortcode output becomes the page body and the theme/global header/footer may be bypassed.', 'gitpress' ); ?></span>
 				</p>
+				<p>
+					<label>
+						<input type="radio" name="dgs_page_shortcode_render_mode" value="gitpress_managed" <?php checked( $render_mode, 'gitpress_managed' ); ?>>
+						<strong><?php esc_html_e( 'GitPress Managed', 'gitpress' ); ?></strong>
+					</label>
+					<br>
+					<span class="description"><?php esc_html_e( 'Uses GitPress-managed global header and footer shortcodes from GitPress settings around this page\'s shortcode output.', 'gitpress' ); ?></span>
+				</p>
+				<p id="dgs-page-shortcode-managed-note" class="description" style="<?php echo 'gitpress_managed' === $render_mode ? '' : 'display:none;'; ?>">
+					<em><?php esc_html_e( 'This page will use the global GitPress Managed header and footer shortcodes from GitPress settings.', 'gitpress' ); ?></em>
+				</p>
 			</div>
 			<div id="dgs-page-shortcode-placement-wrap">
 				<p>
@@ -109,7 +120,7 @@ class DGS_Page_Shortcode_Manager {
 						<option value="replace" <?php selected( $placement, 'replace' ); ?>><?php esc_html_e( 'Replace page content', 'gitpress' ); ?></option>
 					</select>
 				</p>
-				<p id="dgs-page-shortcode-placement-help" class="description"><?php esc_html_e( 'In Full Canvas mode, placement is ignored because the shortcode becomes the page body.', 'gitpress' ); ?></p>
+				<p id="dgs-page-shortcode-placement-help" class="description"><?php esc_html_e( 'In Full Canvas or GitPress Managed mode, placement is ignored because the shortcode becomes the page body.', 'gitpress' ); ?></p>
 			</div>
 			<div id="dgs-page-shortcode-full-width-wrap">
 				<p>
@@ -138,30 +149,36 @@ class DGS_Page_Shortcode_Manager {
 					var helper = document.getElementById('dgs-page-shortcode-placement-help');
 					var fullWidthWrap = document.getElementById('dgs-page-shortcode-full-width-wrap');
 					var fullWidthField = document.getElementById('dgs-page-shortcode-full-width');
+					var managedNote = document.getElementById('dgs-page-shortcode-managed-note');
 					var radios = panel.querySelectorAll('input[name="dgs_page_shortcode_render_mode"]');
 
 					function updatePlacementState() {
 						var selected = panel.querySelector('input[name="dgs_page_shortcode_render_mode"]:checked');
-						var isFullCanvas = selected && 'full_canvas' === selected.value;
+						var isManaged = selected && 'gitpress_managed' === selected.value;
+						var isFullPageMode = selected && ('full_canvas' === selected.value || isManaged);
 
 						if (placementField) {
-							placementField.disabled = !!isFullCanvas;
+							placementField.disabled = !!isFullPageMode;
 						}
 
 						if (placementWrap) {
-							placementWrap.classList.toggle('is-disabled', !!isFullCanvas);
+							placementWrap.classList.toggle('is-disabled', !!isFullPageMode);
 						}
 
 						if (helper) {
-							helper.style.display = isFullCanvas ? 'block' : 'none';
+							helper.style.display = isFullPageMode ? 'block' : 'none';
 						}
 
 						if (fullWidthField) {
-							fullWidthField.disabled = !!isFullCanvas;
+							fullWidthField.disabled = !!isFullPageMode;
 						}
 
 						if (fullWidthWrap) {
-							fullWidthWrap.classList.toggle('is-disabled', !!isFullCanvas);
+							fullWidthWrap.classList.toggle('is-disabled', !!isFullPageMode);
+						}
+
+						if (managedNote) {
+							managedNote.style.display = isManaged ? 'block' : 'none';
 						}
 					}
 
@@ -230,7 +247,7 @@ class DGS_Page_Shortcode_Manager {
 		update_post_meta( $post_id, self::META_KEY_RENDER_MODE, $render_mode );
 		update_post_meta( $post_id, self::META_KEY_FULL_WIDTH, $full_width ? '1' : '0' );
 
-		if ( 'full_canvas' === $render_mode ) {
+		if ( in_array( $render_mode, array( 'full_canvas', 'gitpress_managed' ), true ) ) {
 			update_post_meta( $post_id, self::META_KEY_FULL_PAGE, '1' );
 		} else {
 			delete_post_meta( $post_id, self::META_KEY_FULL_PAGE );
@@ -302,7 +319,7 @@ class DGS_Page_Shortcode_Manager {
 					sprintf(
 						/* translators: %s is the placement label. */
 						__( 'Placement: %s', 'gitpress' ),
-						'full_canvas' === $render_mode ? __( 'Ignored in Full Canvas', 'gitpress' ) : self::placement_label( $placement )
+						in_array( $render_mode, array( 'full_canvas', 'gitpress_managed' ), true ) ? __( 'Ignored (full page mode)', 'gitpress' ) : self::placement_label( $placement )
 					)
 				),
 				'href'   => esc_url( $edit_url ),
@@ -413,6 +430,22 @@ class DGS_Page_Shortcode_Manager {
 			return;
 		}
 
+		if ( 'gitpress_managed' === self::get_render_mode( $post->ID ) ) {
+			self::render_gitpress_managed_canvas( $post, $rendered );
+		} else {
+			self::render_full_canvas( $rendered );
+		}
+
+		exit;
+	}
+
+	/**
+	 * Output the Full Canvas document body (standalone landing page mode).
+	 *
+	 * @param string $rendered Rendered page-level shortcode markup.
+	 * @return void
+	 */
+	private static function render_full_canvas( $rendered ) {
 		status_header( 200 );
 		?><!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -427,7 +460,93 @@ class DGS_Page_Shortcode_Manager {
 	<?php wp_footer(); ?>
 </body>
 </html><?php
-		exit;
+	}
+
+	/**
+	 * Output the GitPress Managed document body: global header, page shortcode, global footer.
+	 *
+	 * Bypasses the active theme's get_header()/get_footer() entirely while still
+	 * calling wp_head()/wp_body_open()/wp_footer() so plugin and theme assets,
+	 * and the admin bar, continue to work as expected.
+	 *
+	 * @param WP_Post $post           Current queried post.
+	 * @param string  $rendered_body  Rendered page-level shortcode markup.
+	 * @return void
+	 */
+	private static function render_gitpress_managed_canvas( $post, $rendered_body ) {
+		$header_html = self::render_global_managed_shortcode( 'dgs_managed_header_shortcode' );
+		$footer_html = self::render_global_managed_shortcode( 'dgs_managed_footer_shortcode' );
+
+		$body_classes = array( 'dgs-gitpress-managed', 'dgs-full-page', 'dgs-page-' . (int) $post->ID );
+
+		status_header( 200 );
+		?><!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+	<meta charset="<?php bloginfo( 'charset' ); ?>">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<?php wp_head(); ?>
+</head>
+<body <?php body_class( $body_classes ); ?>>
+	<?php wp_body_open(); ?>
+
+	<div class="dgs-managed-page">
+		<?php if ( '' !== $header_html ) : ?>
+		<header class="dgs-managed-header">
+			<?php echo $header_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+		</header>
+		<?php endif; ?>
+
+		<main class="dgs-managed-main" id="main">
+			<?php echo $rendered_body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+		</main>
+
+		<?php if ( '' !== $footer_html ) : ?>
+		<footer class="dgs-managed-footer">
+			<?php echo $footer_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+		</footer>
+		<?php endif; ?>
+	</div>
+
+	<?php wp_footer(); ?>
+</body>
+</html><?php
+	}
+
+	/**
+	 * Render a GitPress Managed global header/footer option as shortcode output.
+	 *
+	 * Never lets a failure in the global shortcode take down the rest of the page.
+	 *
+	 * @param string $option_name Option name holding the shortcode string.
+	 * @return string
+	 */
+	private static function render_global_managed_shortcode( $option_name ) {
+		$shortcode = trim( (string) get_option( $option_name, '' ) );
+
+		if ( '' === $shortcode ) {
+			return '';
+		}
+
+		try {
+			$rendered = do_shortcode( $shortcode );
+		} catch ( \Throwable $e ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				return '<!-- GitPress Managed: ' . esc_html( $option_name ) . ' failed to render: ' . esc_html( $e->getMessage() ) . ' -->';
+			}
+
+			if ( current_user_can( 'manage_options' ) ) {
+				return '<div class="dgs-error">' . esc_html__( 'A GitPress Managed shortcode failed to render. Check GitPress settings.', 'gitpress' ) . '</div>';
+			}
+
+			return '';
+		}
+
+		if ( '' === trim( (string) $rendered ) ) {
+			return '';
+		}
+
+		return (string) $rendered;
 	}
 
 	/**
@@ -635,7 +754,7 @@ class DGS_Page_Shortcode_Manager {
 	 */
 	public static function sanitize_render_mode( $value ) {
 		$value   = sanitize_key( (string) $value );
-		$allowed = array( 'theme_wrapped', 'full_canvas' );
+		$allowed = array( 'theme_wrapped', 'full_canvas', 'gitpress_managed' );
 
 		return in_array( $value, $allowed, true ) ? $value : 'theme_wrapped';
 	}
@@ -686,6 +805,8 @@ class DGS_Page_Shortcode_Manager {
 		switch ( self::sanitize_render_mode( $render_mode ) ) {
 			case 'full_canvas':
 				return __( 'Full Canvas', 'gitpress' );
+			case 'gitpress_managed':
+				return __( 'GitPress Managed', 'gitpress' );
 			case 'theme_wrapped':
 			default:
 				return __( 'Theme Wrapped', 'gitpress' );
@@ -824,6 +945,6 @@ class DGS_Page_Shortcode_Manager {
 	 * @return bool
 	 */
 	public static function is_full_page_enabled( $post_id ) {
-		return 'full_canvas' === self::get_render_mode( $post_id );
+		return in_array( self::get_render_mode( $post_id ), array( 'full_canvas', 'gitpress_managed' ), true );
 	}
 }

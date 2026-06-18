@@ -31,6 +31,8 @@ class DGS_Settings_Page {
 		$github_token   = (string) get_option( 'dgs_github_token', '' );
 		$webhook_secret = (string) get_option( 'dgs_github_webhook_secret', '' );
 		$cache_ttl      = absint( get_option( 'dgs_cache_ttl', DGS_DEFAULT_CACHE_TTL ) );
+		$managed_header = (string) get_option( 'dgs_managed_header_shortcode', '' );
+		$managed_footer = (string) get_option( 'dgs_managed_footer_shortcode', '' );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'GitPress', 'gitpress' ); ?></h1>
@@ -76,6 +78,45 @@ class DGS_Settings_Page {
 						</tr>
 					</tbody>
 				</table>
+
+				<h2><?php esc_html_e( 'GitPress Managed Layout', 'gitpress' ); ?></h2>
+				<p><?php esc_html_e( 'These global shortcodes only affect pages whose Render Mode is set to "GitPress Managed" in the GitHub Shortcode metabox. Theme Wrapped and Full Canvas pages are not affected.', 'gitpress' ); ?></p>
+
+				<?php if ( '' === $managed_header ) : ?>
+					<div class="notice notice-warning inline"><p><?php esc_html_e( 'No GitPress Managed header shortcode is set. Pages using GitPress Managed mode will render without a header.', 'gitpress' ); ?></p></div>
+				<?php endif; ?>
+				<?php if ( '' === $managed_footer ) : ?>
+					<div class="notice notice-warning inline"><p><?php esc_html_e( 'No GitPress Managed footer shortcode is set. Pages using GitPress Managed mode will render without a footer.', 'gitpress' ); ?></p></div>
+				<?php endif; ?>
+
+				<table class="form-table" role="presentation">
+					<tbody>
+						<tr>
+							<th scope="row"><label for="dgs-managed-header-shortcode"><?php esc_html_e( 'GitPress Managed Header Shortcode', 'gitpress' ); ?></label></th>
+							<td>
+								<textarea id="dgs-managed-header-shortcode" name="dgs_managed_header_shortcode" rows="3" class="large-text code"><?php echo esc_textarea( $managed_header ); ?></textarea>
+								<p class="description"><?php esc_html_e( 'Rendered above the page shortcode when a page uses GitPress Managed mode.', 'gitpress' ); ?></p>
+								<p class="description">
+									<?php esc_html_e( 'Example:', 'gitpress' ); ?>
+									<code>[divi_github_content owner="acme" repo="site-content" path="partials/header.html" branch="main" format="html"]</code>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="dgs-managed-footer-shortcode"><?php esc_html_e( 'GitPress Managed Footer Shortcode', 'gitpress' ); ?></label></th>
+							<td>
+								<textarea id="dgs-managed-footer-shortcode" name="dgs_managed_footer_shortcode" rows="3" class="large-text code"><?php echo esc_textarea( $managed_footer ); ?></textarea>
+								<p class="description"><?php esc_html_e( 'Rendered below the page shortcode when a page uses GitPress Managed mode.', 'gitpress' ); ?></p>
+								<p class="description">
+									<?php esc_html_e( 'Example:', 'gitpress' ); ?>
+									<code>[divi_github_content owner="acme" repo="site-content" path="partials/footer.html" branch="main" format="html"]</code>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p class="description"><?php esc_html_e( 'Note: GitPress content is cached by repository and path. If you change these shortcodes to point at content that was already cached under different settings, use "Purge cache now" below or wait for the cache TTL to expire.', 'gitpress' ); ?></p>
+
 				<?php submit_button( __( 'Save settings', 'gitpress' ), 'primary', 'dgs_save_settings_submit' ); ?>
 			</form>
 
@@ -137,6 +178,26 @@ class DGS_Settings_Page {
 				'type'              => 'integer',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_ttl' ),
 				'default'           => DGS_DEFAULT_CACHE_TTL,
+			)
+		);
+
+		register_setting(
+			self::SETTINGS_GROUP,
+			'dgs_managed_header_shortcode',
+			array(
+				'type'              => 'string',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_managed_header_shortcode' ),
+				'default'           => '',
+			)
+		);
+
+		register_setting(
+			self::SETTINGS_GROUP,
+			'dgs_managed_footer_shortcode',
+			array(
+				'type'              => 'string',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_managed_footer_shortcode' ),
+				'default'           => '',
 			)
 		);
 	}
@@ -240,6 +301,94 @@ class DGS_Settings_Page {
 		}
 
 		return sanitize_text_field( trim( wp_unslash( (string) $secret ) ) );
+	}
+
+	/**
+	 * Sanitize the GitPress Managed header shortcode option.
+	 *
+	 * @param mixed $value Raw submitted value.
+	 * @return string
+	 */
+	public static function sanitize_managed_header_shortcode( $value ) {
+		return self::sanitize_managed_shortcode(
+			'dgs_managed_header_shortcode',
+			$value,
+			__( 'GitPress Managed Header Shortcode', 'gitpress' )
+		);
+	}
+
+	/**
+	 * Sanitize the GitPress Managed footer shortcode option.
+	 *
+	 * @param mixed $value Raw submitted value.
+	 * @return string
+	 */
+	public static function sanitize_managed_footer_shortcode( $value ) {
+		return self::sanitize_managed_shortcode(
+			'dgs_managed_footer_shortcode',
+			$value,
+			__( 'GitPress Managed Footer Shortcode', 'gitpress' )
+		);
+	}
+
+	/**
+	 * Shared sanitize/validate logic for the GitPress Managed header/footer options.
+	 *
+	 * Rejects the new value (keeping the previously saved option) when it contains
+	 * anything other than safe GitPress shortcode markup.
+	 *
+	 * @param string $option_name Option name being saved.
+	 * @param mixed  $value       Raw submitted value.
+	 * @param string $label       Human-readable field label for error messages.
+	 * @return string
+	 */
+	private static function sanitize_managed_shortcode( $option_name, $value, $label ) {
+		if ( is_array( $value ) || is_object( $value ) ) {
+			add_settings_error(
+				'dgs_messages',
+				$option_name . '_invalid',
+				sprintf(
+					/* translators: %s is the field label. */
+					__( '%s could not be saved because the submitted value was invalid.', 'gitpress' ),
+					$label
+				),
+				'error'
+			);
+			return (string) get_option( $option_name, '' );
+		}
+
+		$value      = trim( sanitize_textarea_field( wp_unslash( (string) $value ) ) );
+		$validation = DGS_Shortcode_Handler::validate_shortcode_string( $value );
+
+		if ( is_wp_error( $validation ) ) {
+			add_settings_error(
+				'dgs_messages',
+				$option_name . '_invalid',
+				sprintf(
+					/* translators: 1: field label, 2: validation error message. */
+					__( '%1$s was not saved: %2$s', 'gitpress' ),
+					$label,
+					$validation->get_error_message()
+				),
+				'error'
+			);
+			return (string) get_option( $option_name, '' );
+		}
+
+		if ( '' === $value ) {
+			add_settings_error(
+				'dgs_messages',
+				$option_name . '_empty',
+				sprintf(
+					/* translators: %s is the field label. */
+					__( '%s is empty. Pages using GitPress Managed mode will render without it.', 'gitpress' ),
+					$label
+				),
+				'warning'
+			);
+		}
+
+		return $value;
 	}
 
 	/**

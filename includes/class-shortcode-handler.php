@@ -20,6 +20,94 @@ class DGS_Shortcode_Handler {
 	}
 
 	/**
+	 * Validate that a string contains only safe GitPress shortcode markup.
+	 *
+	 * Used to validate global (settings-level) shortcode fields such as the
+	 * GitPress Managed header/footer, where arbitrary HTML/PHP/script content
+	 * must not be allowed. An empty string is valid (means "no shortcode").
+	 *
+	 * @param string $value Raw value submitted by an admin.
+	 * @return true|WP_Error
+	 */
+	public static function validate_shortcode_string( $value ) {
+		$value = trim( (string) $value );
+
+		if ( '' === $value ) {
+			return true;
+		}
+
+		if ( false !== stripos( $value, '<?php' ) || false !== stripos( $value, '<script' ) || false !== stripos( $value, 'javascript:' ) ) {
+			return new WP_Error(
+				'dgs_unsafe_shortcode',
+				__( 'Shortcode cannot contain script or PHP tags.', 'gitpress' )
+			);
+		}
+
+		$allowed_tags = array( 'divi_github', 'divi_github_content' );
+		$pattern      = '/' . get_shortcode_regex( $allowed_tags ) . '/';
+
+		if ( ! preg_match_all( $pattern, $value, $matches ) ) {
+			return new WP_Error(
+				'dgs_invalid_shortcode',
+				__( 'Only divi_github_content (or divi_github) shortcodes are allowed in this field.', 'gitpress' )
+			);
+		}
+
+		$remainder = $value;
+
+		foreach ( $matches[0] as $index => $full_match ) {
+			$remainder = str_replace( $full_match, '', $remainder );
+
+			$atts = shortcode_parse_atts( $matches[3][ $index ] );
+			$atts = is_array( $atts ) ? $atts : array();
+
+			if ( ! empty( $atts['url'] ) && self::url_contains_credentials( (string) $atts['url'] ) ) {
+				return new WP_Error(
+					'dgs_shortcode_token_url',
+					__( 'Shortcode URLs may not include embedded tokens or credentials. Use the owner/repo/path attributes and store any token in GitPress settings instead.', 'gitpress' )
+				);
+			}
+		}
+
+		if ( '' !== trim( $remainder ) ) {
+			return new WP_Error(
+				'dgs_invalid_shortcode',
+				__( 'Only GitPress shortcode markup is allowed in this field.', 'gitpress' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Detect URLs that embed credentials or token-like query parameters.
+	 *
+	 * @param string $url Raw URL value.
+	 * @return bool
+	 */
+	private static function url_contains_credentials( $url ) {
+		if ( false !== strpos( $url, '@' ) ) {
+			return true;
+		}
+
+		$parts = wp_parse_url( $url );
+
+		if ( ! is_array( $parts ) || empty( $parts['query'] ) ) {
+			return false;
+		}
+
+		parse_str( $parts['query'], $query_args );
+
+		foreach ( array_keys( $query_args ) as $key ) {
+			if ( preg_match( '/token|secret|key/i', (string) $key ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Render a GitHub-backed shortcode.
 	 *
 	 * @param array $atts Shortcode attributes.

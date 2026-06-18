@@ -40,3 +40,17 @@
 	background: #fef2f2;
 	color: #991b1b;
 }
+
+.dgs-gitpress-managed,
+.dgs-gitpress-managed body {
+	margin: 0;
+}
+
+.dgs-managed-page {
+	width: 100%;
+	min-height: 100vh;
+}
+
+.dgs-managed-main {
+	width: 100%;
+}
