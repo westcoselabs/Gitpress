@@ -495,11 +495,75 @@ class DGS_Page_Shortcode_Manager {
 <body <?php body_class( $body_classes ); ?>>
 	<?php wp_body_open(); ?>
 
-	<div class="dgs-managed-page">
-		<?php if ( '' !== $header_html ) : ?>
+		<div class="dgs-managed-page">
+			<?php if ( '' !== $header_html ) : ?>
 		<header class="dgs-managed-header">
 			<?php echo $header_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 		</header>
+		<script>
+			(function() {
+				var header = document.getElementById('siteHeader');
+				var hamburger = document.getElementById('hamburger');
+				var scrim = document.getElementById('sheetScrim');
+				var mobileSheet = document.getElementById('mobileSheet');
+
+				if (!header || !hamburger || !scrim || !mobileSheet || header.dataset.dgsHeaderInit === 'true') {
+					return;
+				}
+
+				header.dataset.dgsHeaderInit = 'true';
+
+				var body = document.body;
+				var mobileLinks = mobileSheet.querySelectorAll('a');
+
+				function syncScrolledState() {
+					header.classList.toggle('scrolled', window.scrollY > 24);
+				}
+
+				function toggleMenu(open) {
+					body.classList.toggle('menu-open', open);
+					hamburger.setAttribute('aria-expanded', open ? 'true' : 'false');
+				}
+
+				function closeMenu() {
+					toggleMenu(false);
+				}
+
+				hamburger.addEventListener('click', function() {
+					toggleMenu(!body.classList.contains('menu-open'));
+				});
+
+				scrim.addEventListener('click', closeMenu);
+
+				mobileLinks.forEach(function(link) {
+					link.addEventListener('click', closeMenu);
+				});
+
+				document.addEventListener('keydown', function(event) {
+					if (event.key === 'Escape' && body.classList.contains('menu-open')) {
+						closeMenu();
+					}
+				});
+
+				window.addEventListener('resize', function() {
+					if (window.innerWidth > 900 && body.classList.contains('menu-open')) {
+						closeMenu();
+					}
+				});
+
+				window.addEventListener('scroll', syncScrolledState, { passive: true });
+				syncScrolledState();
+
+				var path = location.pathname.replace(/\/+$/, '');
+				var slug = (path.split('/').pop() || 'home').replace(/\.html$/, '') || 'home';
+
+				document.querySelectorAll('[data-nav]').forEach(function(link) {
+					if (link.getAttribute('data-nav') === slug) {
+						link.classList.add('active');
+					}
+				});
+			})();
+		</script>
 		<?php endif; ?>
 
 		<main class="dgs-managed-main" id="main">
