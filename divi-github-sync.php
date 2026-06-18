@@ -3,7 +3,7 @@
  * Plugin Name: GitPress
  * Plugin URI: https://westcoselabs.com/gitpress
  * Description: Render GitHub-hosted HTML, Markdown, text, or code inside Divi (and any WordPress theme) with server-side output, caching, and webhook invalidation.
- * Version: 1.2.2
+ * Version: 1.2.3
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: WestCose Labs
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'DGS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DGS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'DGS_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
-define( 'DGS_VERSION', '1.2.2' );
+define( 'DGS_VERSION', '1.2.3' );
 define( 'DGS_DEFAULT_CACHE_TTL', 3600 );
 define( 'DGS_CACHE_PREFIX', 'dgs_github_content_' );
 define( 'DGS_CACHE_INDEX_OPTION', 'dgs_cache_index' );
