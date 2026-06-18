@@ -501,6 +501,54 @@ class DGS_Shortcode_Handler {
 			'datetime' => true,
 		);
 
+		$svg = array(
+			'class'              => true,
+			'aria-hidden'        => true,
+			'aria-label'         => true,
+			'role'               => true,
+			'width'              => true,
+			'height'             => true,
+			'viewBox'            => true,
+			'viewbox'            => true,
+			'fill'               => true,
+			'stroke'             => true,
+			'stroke-width'       => true,
+			'stroke-linecap'     => true,
+			'stroke-linejoin'    => true,
+			'stroke-miterlimit'  => true,
+			'stroke-dasharray'   => true,
+			'stroke-dashoffset'  => true,
+			'cx'                 => true,
+			'cy'                 => true,
+			'r'                  => true,
+			'rx'                 => true,
+			'ry'                 => true,
+			'x'                  => true,
+			'y'                  => true,
+			'x1'                 => true,
+			'y1'                 => true,
+			'x2'                 => true,
+			'y2'                 => true,
+			'd'                  => true,
+			'points'             => true,
+			'transform'          => true,
+			'opacity'            => true,
+			'focusable'          => true,
+			'xmlns'              => true,
+		);
+
+		$allowed['svg']      = $svg;
+		$allowed['path']     = $svg;
+		$allowed['circle']   = $svg;
+		$allowed['rect']     = $svg;
+		$allowed['line']     = $svg;
+		$allowed['polyline'] = $svg;
+		$allowed['polygon']  = $svg;
+		$allowed['ellipse']  = $svg;
+		$allowed['g']        = $svg;
+		$allowed['title']    = array();
+		$allowed['desc']     = array();
+
 		return $allowed;
 	}
 
