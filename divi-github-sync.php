@@ -90,6 +90,7 @@ class GitPress {
 	public static function activate() {
 		add_option( 'dgs_cache_ttl', DGS_DEFAULT_CACHE_TTL, '', 'no' );
 		add_option( DGS_CACHE_INDEX_OPTION, array(), '', 'no' );
+		add_option( 'dgs_enable_inner_shortcode_rendering', '1', '', 'no' );
 	}
 
 	/**

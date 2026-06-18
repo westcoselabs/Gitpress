@@ -33,6 +33,7 @@ class DGS_Settings_Page {
 		$cache_ttl      = absint( get_option( 'dgs_cache_ttl', DGS_DEFAULT_CACHE_TTL ) );
 		$managed_header = (string) get_option( 'dgs_managed_header_shortcode', '' );
 		$managed_footer = (string) get_option( 'dgs_managed_footer_shortcode', '' );
+		$enable_inner_shortcode_rendering = '1' === (string) get_option( 'dgs_enable_inner_shortcode_rendering', '1' );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'GitPress', 'gitpress' ); ?></h1>
@@ -67,6 +68,17 @@ class DGS_Settings_Page {
 							<td>
 								<input id="dgs-webhook-secret" name="dgs_github_webhook_secret" type="password" class="regular-text" value="<?php echo esc_attr( $webhook_secret ); ?>">
 								<p class="description"><?php esc_html_e( 'Use the same secret when you configure the GitHub repository webhook.', 'gitpress' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Approved inner shortcodes', 'gitpress' ); ?></th>
+							<td>
+								<label for="dgs-enable-inner-shortcode-rendering">
+									<input id="dgs-enable-inner-shortcode-rendering" name="dgs_enable_inner_shortcode_rendering" type="checkbox" value="1" <?php checked( $enable_inner_shortcode_rendering ); ?>>
+									<?php esc_html_e( 'Enable safe inner shortcode rendering inside GitHub HTML fragments.', 'gitpress' ); ?>
+								</label>
+								<p class="description"><?php esc_html_e( 'Approved shortcodes are rendered after GitPress sanitizes fetched HTML fragments, so plugin markup such as Fluent Forms can render safely without running unknown shortcodes.', 'gitpress' ); ?></p>
+								<p class="description"><code><?php echo esc_html( implode( ', ', DGS_Shortcode_Handler::allowed_inner_shortcodes() ) ); ?></code></p>
 							</td>
 						</tr>
 						<tr>
@@ -200,6 +212,16 @@ class DGS_Settings_Page {
 				'default'           => '',
 			)
 		);
+
+		register_setting(
+			self::SETTINGS_GROUP,
+			'dgs_enable_inner_shortcode_rendering',
+			array(
+				'type'              => 'string',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_checkbox_option' ),
+				'default'           => '1',
+			)
+		);
 	}
 
 	/**
@@ -301,6 +323,16 @@ class DGS_Settings_Page {
 		}
 
 		return sanitize_text_field( trim( wp_unslash( (string) $secret ) ) );
+	}
+
+	/**
+	 * Sanitize a checkbox-style option into a string flag.
+	 *
+	 * @param mixed $value Raw submitted value.
+	 * @return string
+	 */
+	public static function sanitize_checkbox_option( $value ) {
+		return in_array( strtolower( (string) $value ), array( '1', 'true', 'yes', 'on' ), true ) ? '1' : '0';
 	}
 
 	/**

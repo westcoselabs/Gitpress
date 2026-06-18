@@ -424,15 +424,15 @@ class DGS_Page_Shortcode_Manager {
 			return;
 		}
 
-		$rendered = do_shortcode( $shortcode );
-
-		if ( '' === trim( (string) $rendered ) ) {
-			return;
-		}
-
 		if ( 'gitpress_managed' === self::get_render_mode( $post->ID ) ) {
-			self::render_gitpress_managed_canvas( $post, $rendered );
+			self::render_gitpress_managed_canvas( $post, $shortcode );
 		} else {
+			$rendered = do_shortcode( $shortcode );
+
+			if ( '' === trim( (string) $rendered ) ) {
+				return;
+			}
+
 			self::render_full_canvas( $rendered );
 		}
 
@@ -470,12 +470,17 @@ class DGS_Page_Shortcode_Manager {
 	 * and the admin bar, continue to work as expected.
 	 *
 	 * @param WP_Post $post           Current queried post.
-	 * @param string  $rendered_body  Rendered page-level shortcode markup.
+	 * @param string  $page_shortcode Page-level shortcode string.
 	 * @return void
 	 */
-	private static function render_gitpress_managed_canvas( $post, $rendered_body ) {
+	private static function render_gitpress_managed_canvas( $post, $page_shortcode ) {
 		$header_html = self::render_global_managed_shortcode( 'dgs_managed_header_shortcode' );
+		$rendered_body = do_shortcode( $page_shortcode );
 		$footer_html = self::render_global_managed_shortcode( 'dgs_managed_footer_shortcode' );
+
+		if ( '' === trim( (string) $rendered_body ) ) {
+			return;
+		}
 
 		$body_classes = array( 'dgs-gitpress-managed', 'dgs-full-page', 'dgs-page-' . (int) $post->ID );
 

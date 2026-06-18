@@ -396,9 +396,123 @@ class DGS_Shortcode_Handler {
 
 		$content = trim( (string) $content );
 		$content = wp_kses( $content, self::allowed_html() );
+		$content = self::render_approved_inner_shortcodes( $content );
 		$styles  = self::sanitize_style_blocks( $styles );
 
 		return $styles . $content;
+	}
+
+	/**
+	 * Return the allowlist of safe inner shortcodes that may run inside GitHub HTML.
+	 *
+	 * @return array
+	 */
+	public static function allowed_inner_shortcodes() {
+		$shortcodes = array(
+			'fluentform',
+		);
+
+		$shortcodes = apply_filters( 'dgs_allowed_inner_shortcodes', $shortcodes );
+		$shortcodes = is_array( $shortcodes ) ? $shortcodes : array();
+		$shortcodes = array_map( 'sanitize_key', $shortcodes );
+		$shortcodes = array_filter( $shortcodes );
+
+		return array_values( array_unique( $shortcodes ) );
+	}
+
+	/**
+	 * Whether approved inner shortcodes should render inside HTML fragments.
+	 *
+	 * @return bool
+	 */
+	private static function is_inner_shortcode_rendering_enabled() {
+		return '1' === (string) get_option( 'dgs_enable_inner_shortcode_rendering', '1' );
+	}
+
+	/**
+	 * Render approved inner shortcodes after sanitizing fetched GitHub HTML.
+	 *
+	 * Unknown shortcodes remain untouched as text.
+	 *
+	 * @param string $content Sanitized HTML fragment.
+	 * @return string
+	 */
+	private static function render_approved_inner_shortcodes( $content ) {
+		$content = (string) $content;
+
+		if ( '' === $content || ! self::is_inner_shortcode_rendering_enabled() ) {
+			return $content;
+		}
+
+		$allowed_shortcodes = self::allowed_inner_shortcodes();
+
+		if ( empty( $allowed_shortcodes ) ) {
+			return $content;
+		}
+
+		$pattern = '/' . get_shortcode_regex( $allowed_shortcodes ) . '/';
+
+		if ( ! preg_match_all( $pattern, $content, $matches, PREG_SET_ORDER ) ) {
+			return $content;
+		}
+
+		$replacements = array();
+
+		foreach ( $matches as $match ) {
+			$full_match     = isset( $match[0] ) ? (string) $match[0] : '';
+			$shortcode_name = isset( $match[2] ) ? sanitize_key( (string) $match[2] ) : '';
+
+			if ( '' === $full_match || '' === $shortcode_name || ! in_array( $shortcode_name, $allowed_shortcodes, true ) ) {
+				continue;
+			}
+
+			if ( array_key_exists( $full_match, $replacements ) ) {
+				continue;
+			}
+
+			$replacements[ $full_match ] = self::render_single_approved_inner_shortcode( $full_match, $shortcode_name );
+		}
+
+		if ( empty( $replacements ) ) {
+			return $content;
+		}
+
+		return strtr( $content, $replacements );
+	}
+
+	/**
+	 * Render one approved inner shortcode safely.
+	 *
+	 * @param string $shortcode_markup Full shortcode text.
+	 * @param string $shortcode_name   Sanitized shortcode name.
+	 * @return string
+	 */
+	private static function render_single_approved_inner_shortcode( $shortcode_markup, $shortcode_name ) {
+		if ( ! shortcode_exists( $shortcode_name ) ) {
+			if ( current_user_can( 'manage_options' ) ) {
+				return '<div class="dgs-shortcode-notice">' . esc_html__( 'Fluent Forms shortcode is not available.', 'gitpress' ) . '</div>';
+			}
+
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				return '<!-- GitPress: approved inner shortcode "' . esc_html( $shortcode_name ) . '" is not available. -->';
+			}
+
+			return '';
+		}
+
+		try {
+			return (string) do_shortcode( $shortcode_markup );
+		} catch ( \Throwable $e ) {
+			if ( current_user_can( 'manage_options' ) ) {
+				return '<div class="dgs-shortcode-notice">' . esc_html__( 'Fluent Forms shortcode is not available.', 'gitpress' ) . '</div>';
+			}
+
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				return '<!-- GitPress: approved inner shortcode "' . esc_html( $shortcode_name ) . '" failed: ' . esc_html( $e->getMessage() ) . ' -->';
+			}
+
+			return '';
+		}
 	}
 
 	/**
