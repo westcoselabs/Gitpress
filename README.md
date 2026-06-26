@@ -86,6 +86,41 @@ Add a Divi `Code` module, `Text` module, or any WordPress shortcode-aware block 
 [divi_github_content owner="acme" repo="site-content" path="snippets/example.js" format="code" source_link="true"]
 ```
 
+## Forms inside GitHub HTML
+
+GitPress can safely render a small allowlist of inner shortcodes after it sanitizes fetched HTML fragments. This keeps common WordPress form plugins working inside repo-managed landing pages without opening the door to arbitrary shortcode execution.
+
+Default approved inner shortcodes:
+
+```text
+fluentform, gravityform, wpforms, contact-form-7, ninja_form, formidable
+```
+
+Recommended authoring contract:
+
+- Use a provider-agnostic placeholder in shared repo content when the site form engine may vary:
+
+```html
+<!-- BROSEPH_FORM: general-contact -->
+```
+
+- Resolve that placeholder per site to the correct raw shortcode during your GitPress/Broseph publishing workflow.
+- If the site/plugin is already known, a raw shortcode in the HTML fragment is acceptable:
+
+```html
+[fluentform id="3"]
+```
+
+```html
+[gravityform id="1" title="true"]
+```
+
+Notes:
+
+- Existing Fluent Forms setups continue to work unchanged.
+- Unknown or unavailable shortcodes remain unrendered rather than executing unsafely.
+- Developers can further customize the allowlist with the `dgs_allowed_inner_shortcodes` filter.
+
 ## Page-Level Render Modes
 
 When you attach a GitPress shortcode directly to a page or post with the page-level metabox, choose the render mode that matches the layout you want:

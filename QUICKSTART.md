@@ -71,6 +71,32 @@ In GitHub:
 3. Add a `push` webhook using the URL shown in the GitPress settings page.
 4. Use the same secret you saved in WordPress.
 
+## 6. Forms in GitHub HTML
+
+If your GitHub HTML fragment needs a form, GitPress can render approved inner shortcodes for common form plugins.
+
+Best practice for reusable page sources:
+
+```html
+<!-- BROSEPH_FORM: general-contact -->
+```
+
+Then map that placeholder per site to the correct raw shortcode, for example:
+
+```html
+[fluentform id="3"]
+```
+
+```html
+[gravityform id="1" title="true"]
+```
+
+Default approved inner shortcodes:
+
+```text
+fluentform, gravityform, wpforms, contact-form-7, ninja_form, formidable
+```
+
 ## Best-practice reminder
 
 If the content matters for SEO, prefer:

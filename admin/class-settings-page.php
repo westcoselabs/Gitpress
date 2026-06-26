@@ -77,7 +77,7 @@ class DGS_Settings_Page {
 									<input id="dgs-enable-inner-shortcode-rendering" name="dgs_enable_inner_shortcode_rendering" type="checkbox" value="1" <?php checked( $enable_inner_shortcode_rendering ); ?>>
 									<?php esc_html_e( 'Enable safe inner shortcode rendering inside GitHub HTML fragments.', 'gitpress' ); ?>
 								</label>
-								<p class="description"><?php esc_html_e( 'Approved shortcodes are rendered after GitPress sanitizes fetched HTML fragments, so plugin markup such as Fluent Forms can render safely without running unknown shortcodes.', 'gitpress' ); ?></p>
+								<p class="description"><?php esc_html_e( 'Approved shortcodes are rendered after GitPress sanitizes fetched HTML fragments, so supported form plugins and similar embeds can render safely without running unknown shortcodes.', 'gitpress' ); ?></p>
 								<p class="description"><code><?php echo esc_html( implode( ', ', DGS_Shortcode_Handler::allowed_inner_shortcodes() ) ); ?></code></p>
 							</td>
 						</tr>

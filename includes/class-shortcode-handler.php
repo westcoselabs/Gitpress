@@ -410,6 +410,11 @@ class DGS_Shortcode_Handler {
 	public static function allowed_inner_shortcodes() {
 		$shortcodes = array(
 			'fluentform',
+			'gravityform',
+			'wpforms',
+			'contact-form-7',
+			'ninja_form',
+			'formidable',
 		);
 
 		$shortcodes = apply_filters( 'dgs_allowed_inner_shortcodes', $shortcodes );
@@ -490,7 +495,13 @@ class DGS_Shortcode_Handler {
 	private static function render_single_approved_inner_shortcode( $shortcode_markup, $shortcode_name ) {
 		if ( ! shortcode_exists( $shortcode_name ) ) {
 			if ( current_user_can( 'manage_options' ) ) {
-				return '<div class="dgs-shortcode-notice">' . esc_html__( 'Fluent Forms shortcode is not available.', 'gitpress' ) . '</div>';
+				return self::render_shortcode_notice(
+					sprintf(
+						/* translators: %s: shortcode name */
+						__( 'The approved inner shortcode "%s" is not available on this site.', 'gitpress' ),
+						$shortcode_name
+					)
+				);
 			}
 
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -504,7 +515,13 @@ class DGS_Shortcode_Handler {
 			return (string) do_shortcode( $shortcode_markup );
 		} catch ( \Throwable $e ) {
 			if ( current_user_can( 'manage_options' ) ) {
-				return '<div class="dgs-shortcode-notice">' . esc_html__( 'Fluent Forms shortcode is not available.', 'gitpress' ) . '</div>';
+				return self::render_shortcode_notice(
+					sprintf(
+						/* translators: %s: shortcode name */
+						__( 'The approved inner shortcode "%s" failed to render. Check that the matching form plugin is active and the shortcode is valid.', 'gitpress' ),
+						$shortcode_name
+					)
+				);
 			}
 
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -513,6 +530,16 @@ class DGS_Shortcode_Handler {
 
 			return '';
 		}
+	}
+
+	/**
+	 * Render a generic admin-facing shortcode notice.
+	 *
+	 * @param string $message Notice message.
+	 * @return string
+	 */
+	private static function render_shortcode_notice( $message ) {
+		return '<div class="dgs-shortcode-notice">' . esc_html( $message ) . '</div>';
 	}
 
 	/**
